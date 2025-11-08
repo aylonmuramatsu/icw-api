@@ -1,0 +1,29 @@
+# Código fonte TypeScript (não publicar)
+*.ts
+!dist/**/*.d.ts
+
+# Arquivos de desenvolvimento
+tsconfig.json
+.env
+.env.*
+*.log
+.DS_Store
+
+# Testes
+**/*.test.ts
+**/*.spec.ts
+test/
+tests/
+
+# Git
+.git/
+.gitignore
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build temporário
+*.tsbuildinfo
