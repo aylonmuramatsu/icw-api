@@ -326,6 +326,75 @@ npm run generate:env:force
 
 ## ⚙️ Configuração
 
+### TypeScript Configuration
+
+Para evitar problemas com imports em desenvolvimento, **use a seguinte configuração no `tsconfig.json` do seu projeto**:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+**✨ Importante sobre imports sem extensão:**
+
+O comportamento depende da versão do TypeScript:
+
+**TypeScript 4.9.x ou anterior:**
+- ✅ Permite imports sem extensão normalmente
+- ```typescript
+  import { UserService } from './user.service';
+  import { createUserRules } from './user.rules';
+  ```
+
+**TypeScript 5.0+ (mais rigoroso):**
+- ⚠️ Exige extensões `.js` nos imports relativos (mesmo que o arquivo seja `.ts`)
+- ```typescript
+  import { UserService } from './user.service.js';
+  import { createUserRules } from './user.rules.js';
+  ```
+
+**Por quê TypeScript 5.0+ exige extensões?**
+- Quando o TypeScript compila, os arquivos `.ts` viram `.js`
+- O TypeScript precisa saber qual será o caminho final em runtime
+- Isso garante que os imports funcionem corretamente após a compilação
+
+**Soluções:**
+
+1. **Usar TypeScript 4.9.x** (mantém comportamento antigo):
+   ```bash
+   npm install --save-dev typescript@4.9.5
+   ```
+
+2. **Usar extensões `.js` nos imports** (recomendado para TypeScript 5.0+):
+   ```typescript
+   import { UserService } from './user.service.js';
+   ```
+
+3. **Em desenvolvimento com `tsx` ou `ts-node`:**
+   - O `tsx`/`ts-node` resolve corretamente os imports com `.js` mesmo que o arquivo seja `.ts`
+   - Funciona perfeitamente em desenvolvimento e produção
+
+## ⚙️ Configuração Avançada
+
 ### Variáveis de Ambiente
 
 O framework suporta as seguintes variáveis:

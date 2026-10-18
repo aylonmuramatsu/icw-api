@@ -36,18 +36,33 @@ class RoutesManagerClass {
   }
 
   /**
-   * ✨ Carrega automaticamente todos os arquivos *.module.ts em /modules
+   * ✨ Carrega automaticamente todos os arquivos *.module.ts ou *.module.js em /modules
+   * 
+   * Em desenvolvimento: carrega .module.ts de src/
+   * Em produção (compilado): carrega .module.js de dist/ ou pasta indicada pelo usuário
    */
   async autoLoad(
     modulesPath: string = path.join(__dirname, '../../src/modules'),
   ): Promise<void> {
     const errors: Array<{ file: string; error: any }> = [];
 
-    // ✨ Detecta se está rodando com tsx (desenvolvimento)
-    const isDevelopment = process.env.NODE_ENV !== 'production' || 
-      process.argv.some(arg => arg.includes('tsx') || arg.includes('ts-node'));
+    // ✨ Detecta se o PROJETO DO USUÁRIO está rodando código compilado
+    // Verifica se o arquivo principal está em dist/ (resultado do yarn build)
+    const mainModule = require.main;
+    const isUserProjectCompiled = mainModule?.filename.includes(path.sep + 'dist' + path.sep);
+
+    // ✨ Detecta se está em desenvolvimento (tsx/ts-node)
+    const isDevelopment = !isUserProjectCompiled && (
+      process.argv.some(arg => arg.includes('tsx') || arg.includes('ts-node'))
+    );
 
     const loadModulesFromDir = async (dir: string) => {
+      // ✨ Verifica se o diretório existe
+      if (!fs.existsSync(dir)) {
+        console.warn(`⚠️  Diretório de módulos não encontrado: ${dir}`);
+        return;
+      }
+
       const entries = fs.readdirSync(dir, { withFileTypes: true });
 
       for (const entry of entries) {
@@ -56,32 +71,36 @@ class RoutesManagerClass {
         if (entry.isDirectory()) {
           // Recursivamente procura em subdiretórios
           await loadModulesFromDir(fullPath);
-        } else if (
-          entry.name.endsWith('.module.ts') ||
-          entry.name.endsWith('.module.js')
-        ) {
-          try {
-            // ✨ Em desenvolvimento, usa extensão .ts explicitamente
-            let importPath = fullPath;
-            if (entry.name.endsWith('.module.ts') && isDevelopment) {
-              // Usa file:// URL com extensão .ts para tsx resolver corretamente
-              importPath = `file://${fullPath}`;
-            }
-            
-            const moduleExport = await import(importPath);
-
-            // Procura exports nomeados que sejam ModuleDefinition
-            for (const [key, value] of Object.entries(moduleExport)) {
-              if (this.isModuleDefinition(value)) {
-                console.log(`✅ Auto-registrado: ${key} (${fullPath})`);
-                this.register(value as ModuleExport);
+        } else {
+          // ✨ Em produção compilada (dist/), só carrega .js
+          // Em desenvolvimento (src/), carrega .ts e .js
+          const isTsModule = entry.name.endsWith('.module.ts');
+          const isJsModule = entry.name.endsWith('.module.js');
+          
+          if ((isUserProjectCompiled && isJsModule) || (!isUserProjectCompiled && (isTsModule || isJsModule))) {
+            try {
+              // ✨ Em desenvolvimento com .ts, usa file:// URL para tsx resolver corretamente
+              let importPath = fullPath;
+              if (isTsModule && isDevelopment) {
+                // Usa file:// URL com extensão .ts para tsx resolver corretamente
+                importPath = `file://${fullPath}`;
               }
+              
+              const moduleExport = await import(importPath);
+
+              // Procura exports nomeados que sejam ModuleDefinition
+              for (const [key, value] of Object.entries(moduleExport)) {
+                if (this.isModuleDefinition(value)) {
+                  console.log(`✅ Auto-registrado: ${key} (${fullPath})`);
+                  this.register(value as ModuleExport);
+                }
+              }
+            } catch (error) {
+              // ✨ Coleta erro ao invés de apenas logar
+              const relativePath = path.relative(process.cwd(), fullPath);
+              errors.push({ file: relativePath, error });
+              console.error(`❌ Erro ao carregar ${fullPath}:`, error);
             }
-          } catch (error) {
-            // ✨ Coleta erro ao invés de apenas logar
-            const relativePath = path.relative(process.cwd(), fullPath);
-            errors.push({ file: relativePath, error });
-            console.error(`❌ Erro ao carregar ${fullPath}:`, error);
           }
         }
       }
@@ -131,6 +150,13 @@ class RoutesManagerClass {
 
   getModules(): ModuleDefinition[] {
     return this.modules;
+  }
+
+  /**
+   * Limpa módulos registrados (usado no stop / testes).
+   */
+  clear(): void {
+    this.modules = [];
   }
 }
 
